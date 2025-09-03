@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Boxzone Store</title>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+    <style>
+        body { 
+            margin: 0; 
+            padding: 20px; 
+            background: #0F172A;
+            color: #E2E8F0;
+            font-family: 'Segoe UI', Arial, sans-serif; 
+            overflow: hidden;
+            min-height: 100vh;
+        }
+        h1 { 
+            text-align: center; 
+            margin-bottom: 20px; 
+            color: #00FFFF;
+            font-size: 2.5rem; 
+            text-shadow: 0 0 5px #00FFFF;
+        }
+        .visor-container {
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+        .visor {
+            width: 100%;
+            height: 250px;
+            background-color: #000;
+            border: 2px solid #00FFFF;
+            border-radius: 10px;
+            position: relative;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.5);
+        }
+        .visor video, .visor img {
+            width: 100%;
+            height: 100%;
+            border-radius: 8px;
+            object-fit: contain;
+        }
+        .visor-content {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 10px;
+            text-align: center;
+            height: 100%;
+        }
+        .visor-content h3 {
+            margin: 5px 0;
+            color: #E2E8F0;
+        }
+        .visor-content p {
+            font-size: 0.9rem;
+            color: #CBD5E1;
+        }
+        .visor-placeholder {
+            color: #CBD5E1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100%;
+            font-size: 1.2rem;
+        }
+        .carousel-container {
+            width: 100%;
+            overflow-x: auto;
+            white-space: nowrap;
+            padding: 10px 0;
+        }
+        .carousel-item {
+            display: inline-block;
+            width: 150px;
+            height: 150px;
+            margin-right: 20px;
+            background: #1E293B;
+            border-radius: 8px;
+            border: 2px solid transparent;
+            cursor: pointer;
+            text-align: center;
+            transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
+        }
+        .carousel-item:focus {
+            border-color: #00FFFF;
+            box-shadow: 0 0 10px #00FFFF;
+            transform: scale(1.1);
+            outline: none;
+        }
+        .carousel-item img {
+            width: 100px;
+            height: 100px;
+            object-fit: cover;
+            border-radius: 6px;
+            margin-top: 10px;
+        }
+        .carousel-item h3 {
+            margin: 8px 0 0;
+            font-size: 0.8rem;
+            color: #E2E8F0;
+        }
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+        }
+        .modal-content {
+            background: #1E293B;
+            padding: 20px;
+            border-radius: 15px;
+            max-width: 400px;
+            text-align: center;
+            border: 2px solid #00FFFF;
+        }
+        .modal img {
+            width: 100%;
+            height: auto;
+            max-height: 200px;
+            object-fit: cover;
+            border-radius: 10px;
+            margin-bottom: 15px;
+        }
+        .modal h2 {
+            margin: 0 0 10px;
+            color: #00FFFF;
+            font-size: 1.5rem;
+        }
+        .modal p {
+            font-size: 0.9rem;
+            color: #CBD5E1;
+            margin-bottom: 15px;
+        }
+        .modal-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+        }
+        .modal button {
+            padding: 10px 15px;
+            border: none;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: transform 0.2s, background-color 0.2s, box-shadow 0.2s;
+        }
+        .btn-open {
+            background: #00FFFF;
+            color: #0F172A;
+        }
+        .btn-close {
+            background: #4A5568;
+            color: #E2E8F0;
+        }
+        .modal button:focus {
+            outline: none;
+            box-shadow: 0 0 10px #00FFFF;
+            transform: scale(1.05);
+        }
+        .disabled-btn {
+            background-color: #6B7280;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+<body>
+    <h1>Boxzone Store</h1>
+
+    <div class="visor-container">
+        <div class="visor" id="visor">
+            <div class="visor-placeholder">Cargando contenido...</div>
+        </div>
+    </div>
+
+    <div class="carousel-container" id="novedadesCarousel"></div>
+
+    <div class="modal" id="modal">
+        <div class="modal-content">
+            <img id="modalImg" src="" alt="imagen">
+            <h2 id="modalTitulo"></h2>
+            <p id="modalDesc"></p>
+            <div class="modal-buttons">
+                <button id="btnAccion" class="btn-open">Acción</button>
+                <button id="btnCerrar" class="btn-close">Volver a inicio</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const firebaseConfig = {
+            apiKey:"AIzaSyCSQ0Q7SMezq4iCSlHf_UsCmjZuA98OMAk",
+            authDomain:"box-zone-chat.firebaseapp.com",
+            databaseURL:"https://box-zone-chat-default-rtdb.firebaseio.com",
+            projectId:"box-zone-chat",
+            storageBucket:"box-zone-chat.appspot.com",
+            messagingSenderId:"336089943273",
+            appId:"1:336089943273:web:7e55f91d59b92fd6e13478"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
+        const novedadesCarousel = document.getElementById("novedadesCarousel");
+        const modal = document.getElementById("modal");
+        const modalImg = document.getElementById("modalImg");
+        const modalTitulo = document.getElementById("modalTitulo");
+        const modalDesc = document.getElementById("modalDesc");
+        const btnAccion = document.getElementById("btnAccion");
+        const btnCerrar = document.getElementById("btnCerrar");
+        const visor = document.getElementById("visor");
+
+        let currentLink = "";
+        let isHabilitado = false;
+
+        function cargarContenidoVisor(data) {
+            visor.innerHTML = '';
+            if (data.url && (data.url.includes('.mp4') || data.url.includes('.m3u8'))) {
+                visor.innerHTML = `<video controls autoplay><source src="${data.url}"></video>`;
+            } else if (data.url) {
+                visor.innerHTML = `<img src="${data.url}" alt="${data.titulo}">`;
+            } else if (data.titulo) {
+                visor.innerHTML = `<div class="visor-content"><h3>${data.titulo}</h3><p>${data.descripcion}</p></div>`;
+            } else {
+                visor.innerHTML = `<div class="visor-placeholder">No hay contenido de visor disponible</div>`;
+            }
+        }
+        
+        db.ref("agua").orderByChild("tipo").equalTo("visor").limitToLast(1).on("child_added", snap => {
+            const data = snap.val();
+            if (data) cargarContenidoVisor(data);
+        });
+
+        db.ref("agua").on("child_added", snap => {
+            const data = snap.val();
+            if (data.tipo === "visor") return; 
+            
+            const item = document.createElement("div");
+            item.className = "carousel-item"; 
+            item.tabIndex = 0;
+            item.innerHTML = `<img src="${data.imagen}" alt="${data.titulo}"><h3>${data.titulo}</h3>`;
+            
+            item.addEventListener("click", () => abrirModal(data));
+            item.addEventListener("keydown", e => {
+                if (e.key === "Enter") abrirModal(data);
+            });
+            
+            novedadesCarousel.appendChild(item);
+            
+            if (novedadesCarousel.children.length === 1) item.focus();
+        });
+
+        function abrirModal(data) {
+            modal.style.display = "flex";
+            modalImg.src = data.imagen;
+            modalImg.alt = data.titulo;
+            modalTitulo.textContent = data.titulo;
+            modalDesc.textContent = data.descripcion;
+            currentLink = data.enlace;
+            isHabilitado = data.habilitado;
+
+            if (isHabilitado) {
+                btnAccion.textContent = (currentLink.includes(".")) ? "Descargar" : "Abrir contenido";
+                btnAccion.classList.remove('disabled-btn');
+            } else {
+                btnAccion.textContent = "No disponible";
+                btnAccion.classList.add('disabled-btn');
+            }
+
+            btnAccion.focus();
+        }
+
+        btnAccion.addEventListener("click", () => {
+            if (isHabilitado && currentLink) {
+                // Crea un elemento 'a' invisible para forzar la descarga
+                const link = document.createElement('a');
+                link.href = currentLink;
+                // El atributo 'download' le dice al navegador que lo maneje como un archivo
+                link.setAttribute('download', '');
+                // Oculta el enlace para que no se vea en la página
+                link.style.display = 'none';
+                
+                // Agrega el enlace al cuerpo del documento y simula un clic
+                document.body.appendChild(link);
+                link.click();
+                
+                // Limpia el elemento después de usarlo
+                document.body.removeChild(link);
+
+            } else {
+                alert("Este contenido no está habilitado en este momento.");
+            }
+        });
+        
+        btnCerrar.addEventListener("click", () => cerrarModal());
+
+        function cerrarModal() {
+            modal.style.display = "none";
+            const focusedElement = document.activeElement;
+            if (focusedElement === btnAccion || focusedElement === btnCerrar) {
+                const firstItem = novedadesCarousel.querySelector(".carousel-item");
+                if (firstItem) firstItem.focus();
+            }
+        }
+
+        document.addEventListener("keydown", e => {
+            if (e.key === "Escape" && modal.style.display === "flex") {
+                cerrarModal();
+            }
+            if (modal.style.display !== "flex") {
+                const focusedItem = document.activeElement;
+                const items = Array.from(novedadesCarousel.querySelectorAll(".carousel-item"));
+                const currentIndex = items.indexOf(focusedItem);
+                let nextIndex = currentIndex;
+                
+                if (e.key === "ArrowRight") {
+                    e.preventDefault();
+                    nextIndex = (currentIndex + 1) % items.length;
+                    items[nextIndex].focus();
+                } else if (e.key === "ArrowLeft") {
+                    e.preventDefault();
+                    nextIndex = (currentIndex - 1 + items.length) % items.length;
+                    items[nextIndex].focus();
+                }
+
+                if (items[nextIndex]) {
+                    const itemWidth = items[nextIndex].offsetWidth + 20;
+                    novedadesCarousel.scrollLeft = itemWidth * nextIndex;
+                }
+            }
+        });
+
+        [btnAccion, btnCerrar].forEach(btn => {
+            btn.addEventListener("keydown", e => {
+                if (e.key === "ArrowRight") { 
+                    e.preventDefault(); 
+                    if (btn.id === "btnAccion") btnCerrar.focus();
+                    else if (btn.id === "btnCerrar") btnAccion.focus();
+                }
+                if (e.key === "ArrowLeft") { 
+                    e.preventDefault(); 
+                    if (btn.id === "btnCerrar") btnAccion.focus();
+                    else if (btn.id === "btnAccion") btnCerrar.focus();
+                }
+            });
+        });
+    </script>
+</body>
+</html>
